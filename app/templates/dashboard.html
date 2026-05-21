@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>MyDealz Filter – Dashboard</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 1100px; margin: 2em auto; padding: 0 1em; color: #222; }
+  h1 { margin-bottom: 0.2em; }
+  .sub { color: #666; margin-top: 0; }
+  .stats { display: flex; gap: 2em; margin: 1em 0 2em; flex-wrap: wrap; }
+  .stat { background: #f4f4f7; padding: 0.6em 1em; border-radius: 8px; }
+  .stat b { font-size: 1.3em; display: block; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 0.5em 0.6em; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #fafafa; font-weight: 600; }
+  tr.block { background: #fff3f3; }
+  tr.allow { background: #f0fff0; }
+  .bar { display: inline-block; height: 8px; background: linear-gradient(90deg, #e34 0%, #fa3 50%, #3a3 100%); border-radius: 4px; vertical-align: middle; }
+  .pill { display: inline-block; padding: 0.1em 0.6em; border-radius: 12px; font-size: 0.8em; }
+  .pill.block { background: #e34; color: white; }
+  .pill.allow { background: #3a3; color: white; }
+  .filter-bar { margin: 1em 0; display: flex; gap: 0.4em; align-items: center; }
+  .filter-bar span { color: #666; margin-right: 0.4em; }
+  .filter-bar button { padding: 0.35em 0.9em; cursor: pointer; border: 1px solid #ccc; background: #f4f4f7; border-radius: 6px; }
+  .filter-bar button.active { background: #2563eb; color: white; border-color: #2563eb; }
+  .filter-bar .count { color: #888; font-size: 0.85em; margin-left: auto; }
+  form { display: inline; }
+  button { font-size: 0.85em; padding: 0.2em 0.6em; cursor: pointer; }
+  code { background: #f4f4f7; padding: 0.1em 0.4em; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<h1>MyDealz Filter</h1>
+<p class="sub">Dein selbstlernender RSS-Filter. Abo-URL: <code>/feed.xml</code></p>
+
+<div class="stats">
+  <div class="stat"><b>{{ totals.deals }}</b>Deals gesammelt</div>
+  <div class="stat"><b>{{ totals.clicks }}</b>Klicks insgesamt</div>
+  <div class="stat"><b>{{ totals.impressions }}</b>verbuchte Impressionen</div>
+  <div class="stat"><b>{{ totals.pulls }}</b>Feed-Abrufe</div>
+  <div class="stat"><b>{{ groups|length }}</b>Produkt-Gruppen</div>
+</div>
+
+<h2>Gruppen (sortiert nach Score, schlechteste zuerst)</h2>
+<p>Score = geschätzte Klick-Wahrscheinlichkeit. <b>Block</b> = nie zeigen, <b>Allow</b> = immer zeigen, sonst automatisch.</p>
+
+<div class="filter-bar">
+  <span>Anzeigen:</span>
+  <button data-filter="all">Alle</button>
+  <button data-filter="auto">Nur Auto</button>
+  <button data-filter="block">Nur Block</button>
+  <button data-filter="allow">Nur Allow</button>
+  <span class="count" id="filter-count"></span>
+</div>
+
+<table>
+<tr>
+  <th>Gruppe</th>
+  <th>Score</th>
+  <th>Klicks (α)</th>
+  <th>Verpasst (β)</th>
+  <th>Deals</th>
+  <th>Status</th>
+  <th>Aktion</th>
+</tr>
+{% for g in groups %}
+<tr class="{{ g.override or '' }}" id="group-{{ g.name|urlencode }}" data-group="{{ g.name }}">
+  <td>{{ g.name }}</td>
+  <td>
+    <span class="bar" style="width: {{ (g.score * 100)|round }}px"></span>
+    {{ '%.0f' % (g.score * 100) }}%
+  </td>
+  <td>{{ g.alpha|int }}</td>
+  <td>{{ g.beta|int }}</td>
+  <td>{{ g.deal_count }}</td>
+  <td>
+    {% if g.override == 'block' %}<span class="pill block">BLOCK</span>
+    {% elif g.override == 'allow' %}<span class="pill allow">ALLOW</span>
+    {% else %}auto{% endif %}
+  </td>
+  <td>
+    <form action="/groups/{{ g.name|urlencode }}/override" method="post" class="js-override">
+      <input type="hidden" name="mode" value="block">
+      <button type="submit">Block</button>
+    </form>
+    <form action="/groups/{{ g.name|urlencode }}/override" method="post" class="js-override">
+      <input type="hidden" name="mode" value="allow">
+      <button type="submit">Allow</button>
+    </form>
+    <form action="/groups/{{ g.name|urlencode }}/override" method="post" class="js-override">
+      <input type="hidden" name="mode" value="clear">
+      <button type="submit">Auto</button>
+    </form>
+    <form action="/groups/{{ g.name|urlencode }}/reset" method="post" class="js-reset"
+          onsubmit="return confirm('Lernfortschritt für {{ g.name }} komplett zurücksetzen?');">
+      <button type="submit" title="α/β auf 0, Override entfernen — Gruppe lernt neu">↻ Reset</button>
+    </form>
+  </td>
+</tr>
+{% endfor %}
+</table>
+
+<script>
+// AJAX-Submit für Override/Reset-Formulare:
+// - Kein Page-Reload → Scroll-Position bleibt erhalten
+// - Status-Pille und Zeilenfarbe werden live aktualisiert
+// - Fallback: bei JS-Fehler fällt's auf normalen Form-Submit zurück
+
+function setPill(cell, mode) {
+  // Cell leeren (sicherer als innerHTML)
+  while (cell.firstChild) cell.removeChild(cell.firstChild);
+  if (mode === 'block' || mode === 'allow') {
+    const span = document.createElement('span');
+    span.className = 'pill ' + mode;
+    span.textContent = mode.toUpperCase();
+    cell.appendChild(span);
+  } else {
+    cell.appendChild(document.createTextNode('auto'));
+  }
+}
+
+// --- Status-Filter ---
+// Zeilen haben class="block" oder class="allow" oder keine (= auto).
+// Wir blenden je nach Filter aus. Auswahl bleibt in localStorage.
+const FILTER_KEY = 'mydealz-filter-status';
+const rows = Array.from(document.querySelectorAll('table tr[data-group]'));
+const filterButtons = document.querySelectorAll('.filter-bar button[data-filter]');
+const countEl = document.getElementById('filter-count');
+
+function applyFilter(name) {
+  let visible = 0;
+  rows.forEach(row => {
+    const isBlock = row.classList.contains('block');
+    const isAllow = row.classList.contains('allow');
+    const isAuto = !isBlock && !isAllow;
+    const show = (name === 'all')
+              || (name === 'block' && isBlock)
+              || (name === 'allow' && isAllow)
+              || (name === 'auto'  && isAuto);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  filterButtons.forEach(b => b.classList.toggle('active', b.dataset.filter === name));
+  countEl.textContent = `${visible} von ${rows.length} Gruppen sichtbar`;
+  try { localStorage.setItem(FILTER_KEY, name); } catch(e) {}
+}
+
+filterButtons.forEach(b => b.addEventListener('click', () => applyFilter(b.dataset.filter)));
+applyFilter(localStorage.getItem(FILTER_KEY) || 'all');
+
+// --- AJAX für Override/Reset ---
+document.querySelectorAll('form.js-override, form.js-reset').forEach(form => {
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const row = form.closest('tr');
+    const isReset = form.classList.contains('js-reset');
+    const modeInput = form.querySelector('[name=mode]');
+    const mode = isReset ? 'clear' : modeInput.value;
+
+    try {
+      const resp = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        redirect: 'manual',
+      });
+      if (!(resp.type === 'opaqueredirect' || resp.ok)) {
+        throw new Error('HTTP ' + resp.status);
+      }
+
+      const pillCell = row.querySelector('td:nth-child(6)');
+      row.classList.remove('block', 'allow');
+      if (mode === 'block') row.classList.add('block');
+      if (mode === 'allow') row.classList.add('allow');
+      setPill(pillCell, mode);
+
+      if (isReset) {
+        row.querySelector('td:nth-child(3)').textContent = '0';
+        row.querySelector('td:nth-child(4)').textContent = '0';
+      }
+
+      // Kurzes gelbes Aufblitzen als Feedback
+      row.style.transition = 'background-color 0.3s';
+      const prevBg = row.style.backgroundColor;
+      row.style.backgroundColor = '#fffacd';
+      setTimeout(() => {
+        row.style.backgroundColor = prevBg;
+        // Filter neu anwenden — Zeile verschwindet ggf. aus aktueller Sicht
+        applyFilter(localStorage.getItem(FILTER_KEY) || 'all');
+      }, 400);
+
+    } catch (err) {
+      console.error('AJAX fehlgeschlagen, falle auf Form-Submit zurück:', err);
+      form.submit();
+    }
+  });
+});
+</script>
+
+</body></html>

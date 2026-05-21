@@ -1,0 +1,17 @@
+services:
+  mydealz-filter:
+    build: .
+    container_name: mydealz-filter
+    restart: unless-stopped
+    ports:
+      - "5102:5102"
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      - PUBLIC_BASE_URL=http://192.168.178.50:5102
+      - POLL_INTERVAL_MINUTES=10
+      - IMPRESSION_WINDOW_HOURS=6
+      - CLASSIFIER_MODEL=google/gemini-2.0-flash-001
+      - CLASSIFIER_MIN_DELAY=0.2
