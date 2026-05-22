@@ -21,6 +21,7 @@ MODEL = os.environ.get("CLASSIFIER_MODEL", "meta-llama/llama-3.3-70b-instruct:fr
 # Throttling: free-Modelle haben oft 20 RPM. Mit 4s Pause = 15 RPM, sicher.
 MIN_DELAY_SECONDS = float(os.environ.get("CLASSIFIER_MIN_DELAY", "4.0"))
 _last_call_at = 0.0
+_remote_disabled_reason: str | None = None
 
 # Diese Labels sind fuer das Lernsystem schaedlich: Sie beschreiben Deal-Mechanik
 # oder Fehlerzustand, nicht die Produktart. Sie duerfen weder als Kontext ans LLM
@@ -205,8 +206,12 @@ def _sanitize_groups(groups: list[str], title: str, description: str) -> list[st
 
 def classify(title: str, description: str = "") -> list[str]:
     """Gibt eine Liste feiner Produkt-Gruppen für einen Deal zurück."""
+    global _remote_disabled_reason
     if not OPENROUTER_KEY:
         log.warning("OPENROUTER_API_KEY nicht gesetzt — nutze lokale Fallback-Klassifikation")
+        return _sanitize_groups([], title, description)
+    if _remote_disabled_reason:
+        log.warning("OpenRouter deaktiviert (%s) — nutze lokale Fallback-Klassifikation", _remote_disabled_reason)
         return _sanitize_groups([], title, description)
 
     known = get_known_groups()
@@ -245,6 +250,13 @@ def classify(title: str, description: str = "") -> list[str]:
         _last_call_at = time.monotonic()
         try:
             resp = httpx.post(OPENROUTER_URL, json=payload, headers=headers, timeout=30.0)
+            if resp.status_code in (401, 403):
+                _remote_disabled_reason = f"HTTP {resp.status_code}"
+                log.error(
+                    "OpenRouter-Key abgelehnt (%s) — deaktiviere Remote-Klassifikation bis zum Neustart",
+                    _remote_disabled_reason,
+                )
+                return _sanitize_groups([], title, description)
             if resp.status_code == 429:
                 wait = 2 ** attempt * 5  # 5, 10, 20, 40 s
                 log.warning("429 für '%s', warte %ds (Versuch %d)",

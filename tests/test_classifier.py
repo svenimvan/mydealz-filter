@@ -27,6 +27,10 @@ class _RateLimitedResponse:
     status_code = 429
 
 
+class _UnauthorizedResponse:
+    status_code = 401
+
+
 class ClassifierSanitizingTest(unittest.TestCase):
     def setUp(self):
         self._post = classifier.httpx.post
@@ -34,11 +38,13 @@ class ClassifierSanitizingTest(unittest.TestCase):
         self._sleep = classifier.time.sleep
         classifier.get_known_groups = lambda: []
         classifier.time.sleep = lambda seconds: None
+        classifier._remote_disabled_reason = None
 
     def tearDown(self):
         classifier.httpx.post = self._post
         classifier.get_known_groups = self._known
         classifier.time.sleep = self._sleep
+        classifier._remote_disabled_reason = None
 
     def _classify_with_response(self, title: str, response: str):
         classifier.httpx.post = lambda *args, **kwargs: _Response(response)
@@ -78,6 +84,19 @@ class ClassifierSanitizingTest(unittest.TestCase):
 
         classifier.httpx.post = lambda *args, **kwargs: _RateLimitedResponse()
         self.assertEqual(classifier.classify("Direktflüge: Griechenland ab Berlin", ""), ["Flug"])
+
+    def test_unauthorized_response_disables_remote_calls_for_process(self):
+        calls = 0
+
+        def post(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            return _UnauthorizedResponse()
+
+        classifier.httpx.post = post
+        self.assertEqual(classifier.classify("Apple Music 3 Monate für 1,99€", ""), ["Musik-Abo"])
+        self.assertEqual(classifier.classify("Direktflüge: Griechenland ab Berlin", ""), ["Flug"])
+        self.assertEqual(calls, 1)
 
 
 if __name__ == "__main__":
