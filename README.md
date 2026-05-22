@@ -144,6 +144,13 @@ curl -X POST "http://localhost:5102/admin/reclassify-group/Büroartikel"
 docker exec mydealz-filter sqlite3 /data/mydealz.db  # falls sqlite3 installiert
 ```
 
+## Entwicklung / Tests
+
+```bash
+# Klassifizierungs-Schutzregeln ohne echten OpenRouter-Call testen
+python3.12 -m unittest tests.test_classifier
+```
+
 ## Dashboard-Features
 
 - **Filter-Bar**: schnell zwischen "Alle", "Nur Auto", "Nur Block", "Nur Allow"

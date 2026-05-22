@@ -22,6 +22,17 @@ MODEL = os.environ.get("CLASSIFIER_MODEL", "meta-llama/llama-3.3-70b-instruct:fr
 MIN_DELAY_SECONDS = float(os.environ.get("CLASSIFIER_MIN_DELAY", "4.0"))
 _last_call_at = 0.0
 
+# Diese Labels sind fuer das Lernsystem schaedlich: Sie beschreiben Deal-Mechanik
+# oder Fehlerzustand, nicht die Produktart. Sie duerfen weder als Kontext ans LLM
+# gehen noch als Ergebnis gespeichert werden, wenn es eine bessere Alternative gibt.
+FORBIDDEN_GROUPS = {
+    "Gutschein",
+    "Payback",
+    "Cashback",
+    "keine passende Gruppe gefunden",
+    "unklassifiziert",
+}
+
 SYSTEM_PROMPT = """Du klassifizierst deutsche Online-Deals von mydealz.de in spezifische Produkt-Gruppen.
 
 Regeln:
@@ -37,6 +48,10 @@ WICHTIGE Klassifikations-Beispiele für häufige Deal-Typen:
 
 Hardware/Geräte:
 - "iPhone", "Android-Smartphone", "3D-Drucker", "Akkuschrauber", "Bohrhammer", "Laufschuhe", "Kaffeemaschine", "Bluetooth-Kopfhörer", "Gaming-Monitor", "Webcam"
+- "Bluetooth-Lautsprecher" für JBL Go, Marshall Emberton, Bose SoundLink usw.
+- "Gaming-PC" für Desktop-PCs, Handheld-Gaming-PCs, RTX/Ryzen Gaming-Rechner — NICHT "PC-Spiel"
+- "Luftpumpe" für SUP-/Paddle-Board-Pumpen — NICHT "Luftreiniger"
+- "Rasenmäher" für Akku-Rasenmäher — "Mähroboter" nur für autonome Mähroboter
 
 Software/Abos/KI:
 - "KI-Abo" (für ChatGPT Plus, Google AI Pro, Claude Pro, Gemini Advanced, Perplexity Pro)
@@ -63,9 +78,10 @@ Fahrzeuge:
 - "Motorrad", "Roller"
 
 Spiele:
-- "PC-Spiel", "PS5-Spiel", "Switch-Spiel", "Mobile-App"
+- "PC-Spiel", "PS5-Spiel", "Nintendo Switch", "Xbox Series X|S", "Mobile-App"
+- Spiele-Hardware/Zubehör nicht als Spiel klassifizieren: Joystick → "Gaming-Zubehör", Gaming-PC → "Gaming-PC"
 
-Bei Gutscheinen/Cashback/Verträgen die zugrundeliegende Produktart, nicht "Gutschein".
+Bei Gutscheinen/Cashback/Verträgen die zugrundeliegende Produktart, nicht "Gutschein", "Payback" oder "Cashback".
 
 Antworte AUSSCHLIESSLICH mit den Gruppen-Namen, kommagetrennt, sonst NICHTS — kein JSON, keine Erklärung, keine Markdown.
 Beispiele für korrekte Antworten:
@@ -78,11 +94,11 @@ KI-Abo
 def get_known_groups(limit: int = 200) -> list[str]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT name FROM groups WHERE name != 'unklassifiziert' "
+            "SELECT name FROM groups "
             "ORDER BY (alpha + beta) DESC, name LIMIT ?",
             (limit,),
         ).fetchall()
-    return [r["name"] for r in rows]
+    return [r["name"] for r in rows if r["name"] not in FORBIDDEN_GROUPS]
 
 
 def _extract_json(text: str) -> dict | None:
@@ -94,6 +110,80 @@ def _extract_json(text: str) -> dict | None:
         return json.loads(match.group(0))
     except json.JSONDecodeError:
         return None
+
+
+def _keyword_fallback(title: str, description: str = "") -> list[str]:
+    """Kleine Sicherheitsleine fuer verbotene oder leere LLM-Antworten.
+
+    Das ist bewusst keine Vollklassifikation. Sie deckt nur Muster ab, die im
+    Audit wiederholt falsch liefen oder bei Gutschein/Cashback-Deals oft genug
+    direkt aus dem Titel ableitbar sind.
+    """
+    text = f"{title} {description}".lower()
+    rules = [
+        (("chatgpt", "google ai pro", "gemini advanced", "claude pro", "perplexity pro"), "KI-Abo"),
+        (("adobe", "office 365", "microsoft 365", "antivirus"), "Software-Abo"),
+        (("google one", "icloud", "dropbox"), "Cloud-Speicher"),
+        (("gaming pc", "gaming-pc", "rtx ", "geforce rtx", "ryzen"), "Gaming-PC"),
+        (("lautsprecher", "speaker", "soundlink", "jbl go", "emberton"), "Bluetooth-Lautsprecher"),
+        (("sup-pumpe", "paddle-board-pumpe", "paddle board pumpe"), "Luftpumpe"),
+        (("mähroboter", "maehroboter"), "Mähroboter"),
+        (("rasenmäher", "rasenmaeher"), "Rasenmäher"),
+        (("zahnbürste", "oral-b", "oneblade", "rasierer"), "Zahnbürste"),
+        (("netflix", "youtube premium", "disney+", "sky "), "Streaming-Abo"),
+        (("mobilfunk", "allnet", "prepaid", "5g", "telekom netz"), "Mobilfunk-Vertrag"),
+        (("lego", "klemmbaustein"), "LEGO-Set"),
+        (("kino", "cinemaxx", "uci kino"), "Kino-Ticket"),
+        (("google-play-gutschein", "google play gutschein"), "Google-Play-Guthaben"),
+        (("dhl", "paketversand", "versandmarke"), "Paketdienst"),
+        (("otto up", "otto up plus"), "Shopping-Abo"),
+        (("paypal",), "Zahlungsdienst"),
+        (("c&a", "cund a", "c & a"), "Bekleidung"),
+        (("voelkner", "völkner"), "Werkzeug"),
+        (("krankenkasse",), "Bonusprogramm"),
+    ]
+    found = []
+    for needles, group in rules:
+        if any(needle in text for needle in needles):
+            found.append(group)
+    return list(dict.fromkeys(found))[:3]
+
+
+def _sanitize_groups(groups: list[str], title: str, description: str) -> list[str]:
+    text = title.lower()
+    cleaned = []
+    for group in groups:
+        group = re.sub(r"\s+", " ", group).strip(" .:-")
+        if not group or len(group) >= 60:
+            continue
+        if group in FORBIDDEN_GROUPS:
+            continue
+        if group == "PC-Spiel" and any(
+            needle in text for needle in ("gaming pc", "gaming-pc", "geforce rtx", "rtx ", "ryzen")
+        ):
+            group = "Gaming-PC"
+        elif group == "Bluetooth-Kopfhörer" and any(
+            needle in text for needle in ("lautsprecher", "speaker", "soundlink", "jbl go", "emberton")
+        ):
+            group = "Bluetooth-Lautsprecher"
+        elif group == "Mähroboter" and any(
+            needle in text for needle in ("rasenmäher", "rasenmaeher")
+        ):
+            group = "Rasenmäher"
+        elif group == "Luftreiniger" and any(
+            needle in text for needle in ("sup-pumpe", "paddle-board-pumpe", "paddle board pumpe")
+        ):
+            group = "Luftpumpe"
+        cleaned.append(group)
+
+    cleaned = list(dict.fromkeys(cleaned))
+    if cleaned:
+        return cleaned[:3]
+
+    fallback = _keyword_fallback(title, description)
+    if fallback:
+        return fallback
+    return ["Sonstige Deals"]
 
 
 def classify(title: str, description: str = "") -> list[str]:
@@ -173,6 +263,6 @@ def classify(title: str, description: str = "") -> list[str]:
 
     if not groups:
         log.warning("Keine Gruppen extrahiert aus: %r", content[:200])
-        return ["unklassifiziert"]
+        return _sanitize_groups([], title, description)
 
-    return groups[:3]
+    return _sanitize_groups(groups, title, description)
