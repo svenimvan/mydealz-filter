@@ -23,15 +23,22 @@ class _Response:
         return {"choices": [{"message": {"content": self._content}}]}
 
 
+class _RateLimitedResponse:
+    status_code = 429
+
+
 class ClassifierSanitizingTest(unittest.TestCase):
     def setUp(self):
         self._post = classifier.httpx.post
         self._known = classifier.get_known_groups
+        self._sleep = classifier.time.sleep
         classifier.get_known_groups = lambda: []
+        classifier.time.sleep = lambda seconds: None
 
     def tearDown(self):
         classifier.httpx.post = self._post
         classifier.get_known_groups = self._known
+        classifier.time.sleep = self._sleep
 
     def _classify_with_response(self, title: str, response: str):
         classifier.httpx.post = lambda *args, **kwargs: _Response(response)
@@ -64,6 +71,13 @@ class ClassifierSanitizingTest(unittest.TestCase):
             self._classify_with_response("Google AI Pro 12 Monate", "```\nKI-Abo\n```"),
             ["KI-Abo"],
         )
+
+    def test_api_failures_use_local_fallback_instead_of_unclassified(self):
+        classifier.httpx.post = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("401"))
+        self.assertEqual(classifier.classify("Apple Music 3 Monate für 1,99€", ""), ["Musik-Abo"])
+
+        classifier.httpx.post = lambda *args, **kwargs: _RateLimitedResponse()
+        self.assertEqual(classifier.classify("Direktflüge: Griechenland ab Berlin", ""), ["Flug"])
 
 
 if __name__ == "__main__":

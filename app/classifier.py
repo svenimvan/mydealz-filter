@@ -124,22 +124,39 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
         (("chatgpt", "google ai pro", "gemini advanced", "claude pro", "perplexity pro"), "KI-Abo"),
         (("adobe", "office 365", "microsoft 365", "antivirus"), "Software-Abo"),
         (("google one", "icloud", "dropbox"), "Cloud-Speicher"),
+        (("apple music", "spotify", "deezer"), "Musik-Abo"),
+        (("blu-ray", "blu ray", "apple tv", "itunes", "amazon vod", "maxdome", "imdb"), "Film"),
+        (("direktflug", "direktflüge", "flugticket", "airline"), "Flug"),
+        (("privatleasing", "leasing"), "Auto-Leasing"),
+        (("e-rocks", "elektroauto"), "Elektroauto"),
         (("gaming pc", "gaming-pc", "rtx ", "geforce rtx", "ryzen"), "Gaming-PC"),
         (("lautsprecher", "speaker", "soundlink", "jbl go", "emberton"), "Bluetooth-Lautsprecher"),
         (("sup-pumpe", "paddle-board-pumpe", "paddle board pumpe"), "Luftpumpe"),
         (("mähroboter", "maehroboter"), "Mähroboter"),
         (("rasenmäher", "rasenmaeher"), "Rasenmäher"),
         (("zahnbürste", "oral-b", "oneblade", "rasierer"), "Zahnbürste"),
+        (("mundspülung", "mundspuelung", "listerine"), "Mundpflege"),
+        (("parfüm", "parfum", "eau de parfum", "duft"), "Parfüm"),
+        (("whisky", "whiskey", "malts"), "Whisky"),
+        (("funkgerät", "walkie talkie"), "Funkgerät"),
+        (("campingstuhl",), "Campingstuhl"),
+        (("kuscheltier", "stofftier"), "Kuscheltier"),
+        (("gesellschaftsspiel", "kinderspiel", "ravensburger"), "Gesellschaftsspiel"),
         (("netflix", "youtube premium", "disney+", "sky "), "Streaming-Abo"),
         (("mobilfunk", "allnet", "prepaid", "5g", "telekom netz"), "Mobilfunk-Vertrag"),
         (("lego", "klemmbaustein"), "LEGO-Set"),
         (("kino", "cinemaxx", "uci kino"), "Kino-Ticket"),
         (("google-play-gutschein", "google play gutschein"), "Google-Play-Guthaben"),
+        (("appstore", "ios appstore", "lifetime kostenlos"), "Mobile-App"),
+        (("netzwerktechnik", "netzwerk-switch", "switche"), "Netzwerk-Switch"),
         (("dhl", "paketversand", "versandmarke"), "Paketdienst"),
         (("otto up", "otto up plus"), "Shopping-Abo"),
         (("paypal",), "Zahlungsdienst"),
-        (("c&a", "cund a", "c & a"), "Bekleidung"),
+        (("trikot", "adidas", "c&a", "cund a", "c & a"), "Bekleidung"),
+        (("fruchtsaft", "valensina"), "Saft"),
+        (("gelschreiber", "rotring", "stift"), "Schreibgerät"),
         (("voelkner", "völkner"), "Werkzeug"),
+        (("wera", "tool-check"), "Werkzeug"),
         (("krankenkasse",), "Bonusprogramm"),
     ]
     found = []
@@ -189,8 +206,8 @@ def _sanitize_groups(groups: list[str], title: str, description: str) -> list[st
 def classify(title: str, description: str = "") -> list[str]:
     """Gibt eine Liste feiner Produkt-Gruppen für einen Deal zurück."""
     if not OPENROUTER_KEY:
-        log.warning("OPENROUTER_API_KEY nicht gesetzt — Klassifikation übersprungen")
-        return ["unklassifiziert"]
+        log.warning("OPENROUTER_API_KEY nicht gesetzt — nutze lokale Fallback-Klassifikation")
+        return _sanitize_groups([], title, description)
 
     known = get_known_groups()
     known_str = ", ".join(known) if known else "(noch keine)"
@@ -239,11 +256,11 @@ def classify(title: str, description: str = "") -> list[str]:
             break
         except Exception as e:
             log.error("OpenRouter-Call fehlgeschlagen für '%s': %s", title[:60], e)
-            return ["unklassifiziert"]
+            return _sanitize_groups([], title, description)
 
     if content is None:
         log.error("Nach 4 Versuchen immer noch 429 für '%s'", title[:60])
-        return ["unklassifiziert"]
+        return _sanitize_groups([], title, description)
 
     # Plain-Text-Output parsen: kommagetrennte Gruppen, eventuell mit
     # vorangestelltem Markdown/Bullets/etc. abräumen.

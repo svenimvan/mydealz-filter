@@ -174,6 +174,10 @@ python3.12 -m unittest tests.test_classifier
 - **LLM-Klassifikationen können daneben liegen** — typischer Fall: Modell
   rät bei ungewöhnlichen Produktnamen. Über `/admin/reclassify-group` oder
   manuellen Eingriff korrigierbar.
+- **OpenRouter-Fehler** — bei fehlendem/ungültigem API-Key oder Rate-Limits
+  nutzt der Klassifikator lokale Fallback-Regeln für bekannte Muster. Nicht
+  erkennbare Fälle landen als `Sonstige Deals`, bis der API-Zugang wieder
+  funktioniert.
 
 ## Lizenz
 
