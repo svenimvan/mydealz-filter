@@ -63,6 +63,10 @@ class ClassifierSanitizingTest(unittest.TestCase):
             ("JBL Go Bluetooth Lautsprecher", "Bluetooth-Kopfhörer", ["Bluetooth-Lautsprecher"]),
             ("Akku Rasenmäher 36V", "Mähroboter", ["Rasenmäher"]),
             ("SUP-Pumpe elektrisch", "Luftreiniger", ["Luftpumpe"]),
+            ("Philips 55OLED810/12 Ambilight TV", "Film", ["Fernseher"]),
+            ("[Rewe] Monster Energy Drink, 10 x 0.5l", "Eis", ["Energy-Drink"]),
+            ("GRANINI mit EDEKA APP kombinierbar", "Eis", ["Saft"]),
+            ("Klipsch Reference R-60M Passiver Regallautsprecher", "Bekleidung", ["HiFi-Lautsprecher"]),
         ]
         for title, response, expected in cases:
             with self.subTest(title=title):
@@ -77,6 +81,33 @@ class ClassifierSanitizingTest(unittest.TestCase):
             self._classify_with_response("Google AI Pro 12 Monate", "```\nKI-Abo\n```"),
             ["KI-Abo"],
         )
+
+    def test_high_confidence_fallbacks_do_not_collect_noisy_extra_groups(self):
+        cases = [
+            (
+                "Philips 55OLED810/12 Ambilight TV + Cashback",
+                "Apple TV wird in der Beschreibung erwähnt",
+                ["Fernseher"],
+            ),
+            (
+                "Samsung QD-OLED Smart TV inklusive Soundbar",
+                "Shoop Cashback",
+                ["Fernseher", "Soundbar"],
+            ),
+            (
+                "Klipsch Reference R-60M Passiver Regallautsprecher",
+                "Paarpreis",
+                ["HiFi-Lautsprecher"],
+            ),
+            (
+                "[Rewe] Monster Energy Drink, 10 x 0.5l",
+                "Eisgekühlt servieren",
+                ["Energy-Drink"],
+            ),
+        ]
+        for title, description, expected in cases:
+            with self.subTest(title=title):
+                self.assertEqual(classifier._sanitize_groups([], title, description), expected)
 
     def test_api_failures_use_local_fallback_instead_of_unclassified(self):
         classifier.httpx.post = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("401"))

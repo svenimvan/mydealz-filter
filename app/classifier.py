@@ -121,16 +121,31 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
     direkt aus dem Titel ableitbar sind.
     """
     text = f"{title} {description}".lower()
+    if any(needle in text for needle in ("energy drink", "monster energy", "red bull")):
+        return ["Energy-Drink"]
+    if any(needle in text for needle in ("fruchtsaft", "valensina", "granini")):
+        return ["Saft"]
+    if any(needle in text for needle in ("regallautsprecher", "passiver lautsprecher")):
+        return ["HiFi-Lautsprecher"]
+    if any(needle in text for needle in ("oled tv", "qled tv", "ambilight tv", "smart tv", "fernseher")):
+        groups = ["Fernseher"]
+        if "soundbar" in text:
+            groups.append("Soundbar")
+        return groups
+
     rules = [
         (("chatgpt", "google ai pro", "gemini advanced", "claude pro", "perplexity pro"), "KI-Abo"),
         (("adobe", "office 365", "microsoft 365", "antivirus"), "Software-Abo"),
         (("google one", "icloud", "dropbox"), "Cloud-Speicher"),
         (("apple music", "spotify", "deezer"), "Musik-Abo"),
         (("blu-ray", "blu ray", "apple tv", "itunes", "amazon vod", "maxdome", "imdb"), "Film"),
+        (("oled tv", "qled tv", "ambilight tv", "smart tv", "fernseher"), "Fernseher"),
         (("direktflug", "direktflüge", "flugticket", "airline"), "Flug"),
         (("privatleasing", "leasing"), "Auto-Leasing"),
         (("e-rocks", "elektroauto"), "Elektroauto"),
         (("gaming pc", "gaming-pc", "rtx ", "geforce rtx", "ryzen"), "Gaming-PC"),
+        (("soundbar",), "Soundbar"),
+        (("regallautsprecher", "passiver lautsprecher"), "HiFi-Lautsprecher"),
         (("lautsprecher", "speaker", "soundlink", "jbl go", "emberton"), "Bluetooth-Lautsprecher"),
         (("sup-pumpe", "paddle-board-pumpe", "paddle board pumpe"), "Luftpumpe"),
         (("mähroboter", "maehroboter"), "Mähroboter"),
@@ -155,6 +170,7 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
         (("paypal",), "Zahlungsdienst"),
         (("trikot", "adidas", "c&a", "cund a", "c & a"), "Bekleidung"),
         (("fruchtsaft", "valensina"), "Saft"),
+        (("energy drink", "monster energy", "red bull"), "Energy-Drink"),
         (("gelschreiber", "rotring", "stift"), "Schreibgerät"),
         (("voelkner", "völkner"), "Werkzeug"),
         (("wera", "tool-check"), "Werkzeug"),
@@ -176,7 +192,15 @@ def _sanitize_groups(groups: list[str], title: str, description: str) -> list[st
             continue
         if group in FORBIDDEN_GROUPS:
             continue
-        if group == "PC-Spiel" and any(
+        if any(needle in text for needle in ("oled tv", "qled tv", "ambilight tv", "smart tv", "fernseher")):
+            group = "Fernseher"
+        elif any(needle in text for needle in ("energy drink", "monster energy", "red bull")):
+            group = "Energy-Drink"
+        elif any(needle in text for needle in ("fruchtsaft", "valensina", "granini")):
+            group = "Saft"
+        elif any(needle in text for needle in ("regallautsprecher", "passiver lautsprecher")):
+            group = "HiFi-Lautsprecher"
+        elif group == "PC-Spiel" and any(
             needle in text for needle in ("gaming pc", "gaming-pc", "geforce rtx", "rtx ", "ryzen")
         ):
             group = "Gaming-PC"
