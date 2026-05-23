@@ -77,7 +77,7 @@ mydealz.de/rss/alles  →  [Poller]  →  SQLite
 
 - Docker + Docker Compose
 - OpenRouter-API-Key (kostenpflichtig, sehr günstig — ~4€/Monat bei
-  Default-Modell `google/gemini-2.0-flash-001`)
+  Default-Modell `google/gemini-2.5-flash-lite`)
 
 ### Installation
 
@@ -101,7 +101,7 @@ docker compose up -d
 | Variable                  | Default                                | Bedeutung                                    |
 |---------------------------|----------------------------------------|----------------------------------------------|
 | `OPENROUTER_API_KEY`      | —                                      | OpenRouter-API-Key (in `.env`)               |
-| `CLASSIFIER_MODEL`        | `google/gemini-2.0-flash-001`          | Modell-ID für die Klassifikation             |
+| `CLASSIFIER_MODEL`        | `google/gemini-2.5-flash-lite`         | Modell-ID für die Klassifikation             |
 | `CLASSIFIER_MIN_DELAY`    | `0.2`                                  | Mindest-Sekunden zwischen API-Calls          |
 | `POLL_INTERVAL_MINUTES`   | `10`                                   | Wie oft MyDealz-RSS abgefragt wird           |
 | `IMPRESSION_WINDOW_HOURS` | `6`                                    | Zeitfenster bevor Nicht-Klicks gezählt werden|
@@ -113,7 +113,7 @@ docker compose up -d
 # In docker-compose.yml unter environment:
 - CLASSIFIER_MODEL=openrouter/free                     # Auto-Router (gratis, aber rate-limited)
 - CLASSIFIER_MODEL=deepseek/deepseek-chat-v3.1         # gut, ~8€/Monat
-- CLASSIFIER_MODEL=google/gemini-2.0-flash-001         # Default, ~4€/Monat
+- CLASSIFIER_MODEL=google/gemini-2.5-flash-lite        # Default, ~4€/Monat
 - CLASSIFIER_MODEL=anthropic/claude-3-5-haiku          # sehr gut, ~15€/Monat
 ```
 
