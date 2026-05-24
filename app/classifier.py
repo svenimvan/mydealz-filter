@@ -113,6 +113,24 @@ def _extract_json(text: str) -> dict | None:
         return None
 
 
+def _is_tv_deal(text: str) -> bool:
+    if any(needle in text for needle in ("tv remote", "tv-remote", "fernbedienung", "remote app")):
+        return False
+    return any(needle in text for needle in ("oled tv", "qled tv", "ambilight tv", "smart tv", "fernseher"))
+
+
+def _is_energy_drink_deal(text: str) -> bool:
+    if any(needle in text for needle in ("red bull racing", "racing e-scooter")):
+        return False
+    return any(needle in text for needle in ("energy drink", "monster energy", "red bull"))
+
+
+def _is_desktop_gaming_pc_deal(text: str) -> bool:
+    if any(needle in text for needle in ("laptop", "notebook")):
+        return False
+    return any(needle in text for needle in ("gaming pc", "gaming-pc", "desktop pc"))
+
+
 def _keyword_fallback(title: str, description: str = "") -> list[str]:
     """Kleine Sicherheitsleine fuer verbotene oder leere LLM-Antworten.
 
@@ -121,17 +139,35 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
     direkt aus dem Titel ableitbar sind.
     """
     text = f"{title} {description}".lower()
-    if any(needle in text for needle in ("energy drink", "monster energy", "red bull")):
+    if _is_energy_drink_deal(text):
         return ["Energy-Drink"]
     if any(needle in text for needle in ("fruchtsaft", "valensina", "granini")):
         return ["Saft"]
     if any(needle in text for needle in ("regallautsprecher", "passiver lautsprecher")):
         return ["HiFi-Lautsprecher"]
-    if any(needle in text for needle in ("oled tv", "qled tv", "ambilight tv", "smart tv", "fernseher")):
+    if _is_tv_deal(text):
         groups = ["Fernseher"]
         if "soundbar" in text:
             groups.append("Soundbar")
         return groups
+    if _is_desktop_gaming_pc_deal(text):
+        return ["Gaming-PC"]
+    if any(needle in text for needle in ("kühlbox", "kuehlbox")):
+        return ["Kühlbox"]
+    if any(needle in text for needle in ("katzenfutter", "hundefutter", "trockenfutter")):
+        return ["Tiernahrung"]
+    if any(needle in text for needle in ("getriebeöl", "getriebeoel", "motoröl", "motoroel", "scheibenwischer")):
+        return ["Auto-Zubehör"]
+    if "kabelkanal" in text:
+        return ["Kabelmanagement"]
+    if any(needle in text for needle in ("lippenpflegestift", "lippenpflege")):
+        return ["Lippenpflege"]
+    if "toilettenpapier" in text:
+        return ["Toilettenpapier"]
+    if any(needle in text for needle in ("femdisc", "menstruationsscheibe", "menstruationstasse")):
+        return ["Menstruationsprodukt"]
+    if any(needle in text for needle in ("rabatt auf alles", "rabatt auf den gesamten einkauf", "newsletter")):
+        return ["Shopping-Rabatt"]
 
     rules = [
         (("chatgpt", "google ai pro", "gemini advanced", "claude pro", "perplexity pro"), "KI-Abo"),
@@ -139,11 +175,9 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
         (("google one", "icloud", "dropbox"), "Cloud-Speicher"),
         (("apple music", "spotify", "deezer"), "Musik-Abo"),
         (("blu-ray", "blu ray", "apple tv", "itunes", "amazon vod", "maxdome", "imdb"), "Film"),
-        (("oled tv", "qled tv", "ambilight tv", "smart tv", "fernseher"), "Fernseher"),
         (("direktflug", "direktflüge", "flugticket", "airline"), "Flug"),
         (("privatleasing", "leasing"), "Auto-Leasing"),
         (("e-rocks", "elektroauto"), "Elektroauto"),
-        (("gaming pc", "gaming-pc", "rtx ", "geforce rtx", "ryzen"), "Gaming-PC"),
         (("soundbar",), "Soundbar"),
         (("regallautsprecher", "passiver lautsprecher"), "HiFi-Lautsprecher"),
         (("lautsprecher", "speaker", "soundlink", "jbl go", "emberton"), "Bluetooth-Lautsprecher"),
@@ -170,7 +204,6 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
         (("paypal",), "Zahlungsdienst"),
         (("trikot", "adidas", "c&a", "cund a", "c & a"), "Bekleidung"),
         (("fruchtsaft", "valensina"), "Saft"),
-        (("energy drink", "monster energy", "red bull"), "Energy-Drink"),
         (("gelschreiber", "rotring", "stift"), "Schreibgerät"),
         (("voelkner", "völkner"), "Werkzeug"),
         (("wera", "tool-check"), "Werkzeug"),
@@ -192,16 +225,34 @@ def _sanitize_groups(groups: list[str], title: str, description: str) -> list[st
             continue
         if group in FORBIDDEN_GROUPS:
             continue
-        if any(needle in text for needle in ("oled tv", "qled tv", "ambilight tv", "smart tv", "fernseher")):
+        if _is_tv_deal(text):
             group = "Fernseher"
-        elif any(needle in text for needle in ("energy drink", "monster energy", "red bull")):
+        elif _is_energy_drink_deal(text):
             group = "Energy-Drink"
         elif any(needle in text for needle in ("fruchtsaft", "valensina", "granini")):
             group = "Saft"
         elif any(needle in text for needle in ("regallautsprecher", "passiver lautsprecher")):
             group = "HiFi-Lautsprecher"
+        elif _is_desktop_gaming_pc_deal(text):
+            group = "Gaming-PC"
+        elif any(needle in text for needle in ("kühlbox", "kuehlbox")):
+            group = "Kühlbox"
+        elif any(needle in text for needle in ("katzenfutter", "hundefutter", "trockenfutter")):
+            group = "Tiernahrung"
+        elif any(needle in text for needle in ("getriebeöl", "getriebeoel", "motoröl", "motoroel", "scheibenwischer")):
+            group = "Auto-Zubehör"
+        elif "kabelkanal" in text:
+            group = "Kabelmanagement"
+        elif any(needle in text for needle in ("lippenpflegestift", "lippenpflege")):
+            group = "Lippenpflege"
+        elif "toilettenpapier" in text:
+            group = "Toilettenpapier"
+        elif any(needle in text for needle in ("femdisc", "menstruationsscheibe", "menstruationstasse")):
+            group = "Menstruationsprodukt"
+        elif any(needle in text for needle in ("rabatt auf alles", "rabatt auf den gesamten einkauf", "newsletter")):
+            group = "Shopping-Rabatt"
         elif group == "PC-Spiel" and any(
-            needle in text for needle in ("gaming pc", "gaming-pc", "geforce rtx", "rtx ", "ryzen")
+            needle in text for needle in ("gaming pc", "gaming-pc")
         ):
             group = "Gaming-PC"
         elif group == "Bluetooth-Kopfhörer" and any(

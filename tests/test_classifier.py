@@ -67,6 +67,37 @@ class ClassifierSanitizingTest(unittest.TestCase):
             ("[Rewe] Monster Energy Drink, 10 x 0.5l", "Eis", ["Energy-Drink"]),
             ("GRANINI mit EDEKA APP kombinierbar", "Eis", ["Saft"]),
             ("Klipsch Reference R-60M Passiver Regallautsprecher", "Bekleidung", ["HiFi-Lautsprecher"]),
+            ("Dubaro Gaming PC 7500F 9060 XT 16GB", "Laptop", ["Gaming-PC"]),
+            ("Severin Elektrische Kühlbox 25 L", "Lebensmittel", ["Kühlbox"]),
+            ("FRISKIES Trockenfutter für Hunde 3 kg", "Lebensmittel", ["Tiernahrung"]),
+            ("5x 1Liter Mobil ATF 220 Automatikgetriebeöl", "Lebensmittel", ["Auto-Zubehör"]),
+            ("IKEA KAARST Kabelkanal Arnbjörn waagerecht weiß", "Büroartikel", ["Kabelmanagement"]),
+            ("Sebamed 2 Stück Lippenpflegestift", "Lebensmittel", ["Lippenpflege"]),
+            ("Toilettenpapier, 3-lagig, 36 Rollen", "Büroartikel", ["Toilettenpapier"]),
+            ("10% bei Femdisc", "Büroartikel", ["Menstruationsprodukt"]),
+            ("20€ Rabatt ab einem Einkauf von 100€ wegen Newsletter", "Sonstige Deals", ["Shopping-Rabatt"]),
+        ]
+        for title, response, expected in cases:
+            with self.subTest(title=title):
+                self.assertEqual(self._classify_with_response(title, response), expected)
+
+    def test_guard_exclusions_keep_contextual_product_labels(self):
+        cases = [
+            (
+                "iOS AppStore - AirMote: Universal TV Remote - Lifetime kostenlos",
+                "Mobile-App",
+                ["Mobile-App"],
+            ),
+            (
+                "CB: HP OMEN Transcend Gaming 14 Laptop, RTX 5060",
+                "Laptop",
+                ["Laptop"],
+            ),
+            (
+                "freenet Vodafone 20GB 5G + Red Bull Racing E-Scooter",
+                "Mobilfunk-Vertrag",
+                ["Mobilfunk-Vertrag"],
+            ),
         ]
         for title, response, expected in cases:
             with self.subTest(title=title):
@@ -103,6 +134,16 @@ class ClassifierSanitizingTest(unittest.TestCase):
                 "[Rewe] Monster Energy Drink, 10 x 0.5l",
                 "Eisgekühlt servieren",
                 ["Energy-Drink"],
+            ),
+            (
+                "Dubaro Gaming PC 7500F 9060 XT 16GB",
+                "",
+                ["Gaming-PC"],
+            ),
+            (
+                "Severin Elektrische Kühlbox (25 L)",
+                "",
+                ["Kühlbox"],
             ),
         ]
         for title, description, expected in cases:

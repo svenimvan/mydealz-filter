@@ -151,6 +151,20 @@ docker exec mydealz-filter sqlite3 /data/mydealz.db  # falls sqlite3 installiert
 python3.12 -m unittest tests.test_classifier
 ```
 
+## Klassifizierungs-Audit 2026-05-24
+
+Die produktive Klassifizierung wurde erneut geprüft. Ergebnis:
+
+- OpenRouter-Calls laufen stabil mit `200 OK`.
+- Aktive Zuordnungen zu `Gutschein`, `Payback`, `Cashback`, `unklassifiziert`,
+  `keine passende Gruppe gefunden` und `Sonstige Deals` stehen bei 0.
+- Neue Schutzregeln korrigieren u.a. Fernseher, Desktop-Gaming-PCs, Kühlboxen,
+  Tiernahrung, Auto-Zubehör, Kabelmanagement, Lippenpflege, Toilettenpapier,
+  Menstruationsprodukte und reine Shopping-Rabatte.
+- Kontext-Ausschlüsse verhindern, dass TV-Remote-Apps, Gaming-Laptops oder
+  Red-Bull-Racing-Bundles durch einzelne Stichworte falsch umklassifiziert
+  werden.
+
 ## Dashboard-Features
 
 - **Filter-Bar**: schnell zwischen "Alle", "Nur Auto", "Nur Block", "Nur Allow"
