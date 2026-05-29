@@ -76,6 +76,16 @@ class ClassifierSanitizingTest(unittest.TestCase):
             ("Toilettenpapier, 3-lagig, 36 Rollen", "Büroartikel", ["Toilettenpapier"]),
             ("10% bei Femdisc", "Büroartikel", ["Menstruationsprodukt"]),
             ("20€ Rabatt ab einem Einkauf von 100€ wegen Newsletter", "Sonstige Deals", ["Shopping-Rabatt"]),
+            ("Netto Marken-Discount Pfingst special Gutschein", "Sonstige Deals", ["Shopping-Rabatt"]),
+            ("15 Prozent auf Lieferando Gutscheine bei Penny Kartenwelt", "Sonstige Deals", ["Lieferdienst-Gutschein"]),
+            ("5% Rabatt auf BON BON Restaurantgutscheine mit Code", "Sonstige Deals", ["Restaurant-Gutschein"]),
+            ("13% mydays Aktionscode für alles im Shop", "Sonstige Deals", ["Erlebnisgutschein"]),
+            ("Smartbox Gutschein 20% extra Rabatt", "Sonstige Deals", ["Erlebnisgutschein"]),
+            ("HERPA 10% Rabatt Aktionswoche", "Sonstige Deals", ["Modellbau"]),
+            ("XXL Deutschlandfahne 3 x 5 Meter mit 4 Metall-Ösen", "Sonstige Deals", ["Fanartikel"]),
+            ("Vape-Laden | Nikotinfreie Vapes - Gratisgeschenk", "Sonstige Deals", ["Vape"]),
+            ("10€ Gutschein für den neuen Decathlon-Store", "Sonstige Deals", ["Sport-Gutschein"]),
+            ("!GRATIS-Zugabe! SG 300g Beutel [Fressnapf]", "Lebensmittel", ["Tiernahrung"]),
         ]
         for title, response, expected in cases:
             with self.subTest(title=title):
@@ -113,6 +123,14 @@ class ClassifierSanitizingTest(unittest.TestCase):
             ["KI-Abo"],
         )
 
+    def test_sonstige_deals_response_uses_description_fallback(self):
+        result = classifier._sanitize_groups(
+            ["Sonstige Deals"],
+            "Pfingst special Gutschein",
+            "Netto Marken-Discount 15 Euro Rabatt mit Code",
+        )
+        self.assertEqual(result, ["Shopping-Rabatt"])
+
     def test_high_confidence_fallbacks_do_not_collect_noisy_extra_groups(self):
         cases = [
             (
@@ -144,6 +162,11 @@ class ClassifierSanitizingTest(unittest.TestCase):
                 "Severin Elektrische Kühlbox (25 L)",
                 "",
                 ["Kühlbox"],
+            ),
+            (
+                "Pfingst special Gutschein",
+                "Netto Marken-Discount 15 Euro Rabatt mit Code",
+                ["Shopping-Rabatt"],
             ),
         ]
         for title, description, expected in cases:

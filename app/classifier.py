@@ -31,6 +31,7 @@ FORBIDDEN_GROUPS = {
     "Payback",
     "Cashback",
     "keine passende Gruppe gefunden",
+    "Sonstige Deals",
     "unklassifiziert",
 }
 
@@ -168,6 +169,24 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
         return ["Menstruationsprodukt"]
     if any(needle in text for needle in ("rabatt auf alles", "rabatt auf den gesamten einkauf", "newsletter")):
         return ["Shopping-Rabatt"]
+    if "netto" in text and any(needle in text for needle in ("gutschein", "coupon", "rabatt")):
+        return ["Shopping-Rabatt"]
+    if "lieferando" in text and any(needle in text for needle in ("gutschein", "guthaben")):
+        return ["Lieferdienst-Gutschein"]
+    if any(needle in text for needle in ("restaurantgutschein", "restaurantgutscheine", "bon bon")):
+        return ["Restaurant-Gutschein"]
+    if any(needle in text for needle in ("mydays", "smartbox")):
+        return ["Erlebnisgutschein"]
+    if "herpa" in text:
+        return ["Modellbau"]
+    if any(needle in text for needle in ("deutschlandfahne", "fahne")):
+        return ["Fanartikel"]
+    if any(needle in text for needle in ("vape", "vapes", "e-zigarette")):
+        return ["Vape"]
+    if "decathlon" in text and "gutschein" in text:
+        return ["Sport-Gutschein"]
+    if any(needle in text for needle in ("fressnapf", "katzenfutter", "hundefutter", "trockenfutter")):
+        return ["Tiernahrung"]
 
     rules = [
         (("chatgpt", "google ai pro", "gemini advanced", "claude pro", "perplexity pro"), "KI-Abo"),
@@ -251,6 +270,22 @@ def _sanitize_groups(groups: list[str], title: str, description: str) -> list[st
             group = "Menstruationsprodukt"
         elif any(needle in text for needle in ("rabatt auf alles", "rabatt auf den gesamten einkauf", "newsletter")):
             group = "Shopping-Rabatt"
+        elif "lieferando" in text and any(needle in text for needle in ("gutschein", "guthaben")):
+            group = "Lieferdienst-Gutschein"
+        elif any(needle in text for needle in ("restaurantgutschein", "restaurantgutscheine", "bon bon")):
+            group = "Restaurant-Gutschein"
+        elif any(needle in text for needle in ("mydays", "smartbox")):
+            group = "Erlebnisgutschein"
+        elif "herpa" in text:
+            group = "Modellbau"
+        elif any(needle in text for needle in ("deutschlandfahne", "fahne")):
+            group = "Fanartikel"
+        elif any(needle in text for needle in ("vape", "vapes", "e-zigarette")):
+            group = "Vape"
+        elif "decathlon" in text and "gutschein" in text:
+            group = "Sport-Gutschein"
+        elif any(needle in text for needle in ("fressnapf", "katzenfutter", "hundefutter", "trockenfutter")):
+            group = "Tiernahrung"
         elif group == "PC-Spiel" and any(
             needle in text for needle in ("gaming pc", "gaming-pc")
         ):

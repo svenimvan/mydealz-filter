@@ -165,6 +165,21 @@ Die produktive Klassifizierung wurde erneut geprüft. Ergebnis:
   Red-Bull-Racing-Bundles durch einzelne Stichworte falsch umklassifiziert
   werden.
 
+## Klassifizierungs-Audit 2026-05-29
+
+Wiederholungsprüfung der produktiven Klassifizierung:
+
+- Healthcheck OK, OpenRouter-Calls laufen weiter mit `200 OK`.
+- Produktive DB nach Bereinigung: 3467 Deals, 396 Gruppen, 3874
+  Deal-Gruppen-Zuordnungen.
+- Aktive Zuordnungen zu `Gutschein`, `Payback`, `Cashback`, `unklassifiziert`,
+  `keine passende Gruppe gefunden` und `Sonstige Deals` stehen bei 0.
+- Neue Schutzregeln klassifizieren Gutschein-/Fallbackfälle wie Lieferando,
+  Restaurantgutscheine, mydays/Smartbox, Herpa, Decathlon, Vapes,
+  Deutschlandfahnen und Fressnapf-Zugaben in stabilere Produktgruppen.
+- `Sonstige Deals` wird nicht mehr als normales LLM-Ergebnis akzeptiert,
+  sondern löst die lokale Fallback-Klassifikation aus.
+
 ## Dashboard-Features
 
 - **Filter-Bar**: schnell zwischen "Alle", "Nur Auto", "Nur Block", "Nur Allow"
