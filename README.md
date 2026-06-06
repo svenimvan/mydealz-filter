@@ -43,7 +43,8 @@ mydealz.de/rss/alles  →  [Poller]  →  SQLite
 3. **Feed-Endpoint** `/feed.xml`: liefert gefilterten RSS mit umgeschriebenen
    Click-Tracking-Links und einem unverwechselbaren GUID-Präfix
    (`mydealz-filter-<id>`) damit RSS-Reader ihn als eigenständigen Feed
-   behandeln.
+   behandeln. Der komplette Dealtext wird zusätzlich als `content:encoded`
+   ausgegeben, damit RSS-Reader ihn für Offline-Lesen speichern können.
 4. **Click-Tracker** `/click/<id>`: registriert den Klick (mit 60s-Dedup für
    Reader-Prefetch), erhöht α für die zugehörigen Gruppen, redirected dann
    per 302 zum echten Deal.
@@ -107,6 +108,25 @@ docker compose up -d
 | `IMPRESSION_WINDOW_HOURS` | `6`                                    | Zeitfenster bevor Nicht-Klicks gezählt werden|
 | `PUBLIC_BASE_URL`         | `http://localhost:5102`                | Basis-URL für Click-Redirect-URLs            |
 
+## Offline-Lesen / Volltext
+
+MyDealz liefert den Dealtext bereits im RSS. Der Poller speichert den längsten
+verfügbaren Inhalt (`content:encoded`, falls vorhanden, sonst
+`summary`/`description`) und aktualisiert bekannte Deals, wenn der aktuelle
+RSS-Snapshot einen vollständigeren Text enthält.
+
+`/feed.xml` gibt diesen Text sowohl in `description` als auch in
+`content:encoded` aus. `description` steht zuerst als kompatibler Fallback,
+`content:encoded` enthält den Volltext für Reader, die Vollinhalte separat
+speichern. Der Hauptlink bleibt der lokale Click-Tracker (`/click/<id>`), damit
+das Lernsystem weiter Klicksignale bekommt; im Volltext steht zusätzlich ein
+Link zum Originaldeal.
+
+Da das Projekt keinen Gelesen-Status aus deinem RSS-Reader kennt, werden beim
+nächsten Poll nur Deals aus dem aktuellen MyDealz-RSS-Snapshot nachträglich
+aufgefrischt. Für eine sofortige Auffrischung kannst du den manuellen Poll aus
+den operativen Befehlen ausführen.
+
 ### Alternative Modelle
 
 ```yaml
@@ -147,8 +167,8 @@ docker exec mydealz-filter sqlite3 /data/mydealz.db  # falls sqlite3 installiert
 ## Entwicklung / Tests
 
 ```bash
-# Klassifizierungs-Schutzregeln ohne echten OpenRouter-Call testen
-python3.12 -m unittest tests.test_classifier
+# Tests ohne echte OpenRouter-Calls ausführen
+python3.12 -m unittest discover -s tests
 ```
 
 ## Klassifizierungs-Audit 2026-05-24
@@ -196,6 +216,9 @@ Wiederholungsprüfung der produktiven Klassifizierung:
 - **MyDealz-RSS hat nur 30 Items pro Snapshot** → der Feed rotiert schnell;
   beim 10-Min-Poll können bei sehr hohem Deal-Aufkommen vereinzelt Items
   verpasst werden.
+- **Offline-Lesen zielt auf Text** — der Dealtext wird im Feed als Volltext
+  ausgeliefert. Bilder werden nicht lokal gecacht; ob Bilder offline verfügbar
+  sind, hängt vom jeweiligen RSS-Reader ab.
 - **HTTP only** — Klick-Tracking läuft unverschlüsselt im lokalen Netz.
   Für Internet-Exposition einen Reverse-Proxy mit TLS davor setzen.
 - **Single-User** — keine Auth, kein Multi-Account. Designed für persönlichen
