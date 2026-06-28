@@ -24,8 +24,14 @@
   .filter-bar button { padding: 0.35em 0.9em; cursor: pointer; border: 1px solid #ccc; background: #f4f4f7; border-radius: 6px; }
   .filter-bar button.active { background: #2563eb; color: white; border-color: #2563eb; }
   .filter-bar .count { color: #888; font-size: 0.85em; margin-left: auto; }
+  .bulk-bar { margin: 0 0 1em; display: flex; gap: 0.5em; align-items: center; flex-wrap: wrap; background: #f8fafc; border: 1px solid #e5e7eb; padding: 0.6em; border-radius: 8px; }
+  .bulk-bar select { font-size: 0.9em; padding: 0.25em 0.4em; }
+  .bulk-bar .selected-count { color: #666; margin-left: auto; font-size: 0.9em; }
+  .select-col { width: 2.4em; text-align: center; }
+  .select-col input { transform: scale(1.1); }
   form { display: inline; }
   button { font-size: 0.85em; padding: 0.2em 0.6em; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
   code { background: #f4f4f7; padding: 0.1em 0.4em; border-radius: 4px; }
 </style>
 </head>
@@ -54,8 +60,21 @@
   <span class="count" id="filter-count"></span>
 </div>
 
+<form id="bulk-form" action="/groups/bulk/override" method="post" class="bulk-bar">
+  <button type="button" id="select-visible">Sichtbare markieren</button>
+  <button type="button" id="clear-selection">Auswahl leeren</button>
+  <select name="mode" id="bulk-mode" aria-label="Stapelaktion">
+    <option value="block">Block</option>
+    <option value="allow">Allow</option>
+    <option value="clear">Auto</option>
+  </select>
+  <button type="submit" id="bulk-apply" disabled>Anwenden</button>
+  <span class="selected-count" id="selected-count">0 Gruppen markiert</span>
+</form>
+
 <table>
 <tr>
+  <th class="select-col">Auswahl</th>
   <th>Gruppe</th>
   <th>Score</th>
   <th>Klicks (α)</th>
@@ -66,6 +85,10 @@
 </tr>
 {% for g in groups %}
 <tr class="{{ g.override or '' }}" id="group-{{ g.name|urlencode }}" data-group="{{ g.name }}">
+  <td class="select-col">
+    <input type="checkbox" name="groups[]" value="{{ g.name }}" form="bulk-form" class="group-select"
+           aria-label="{{ g.name }} markieren">
+  </td>
   <td>{{ g.name }}</td>
   <td>
     <span class="bar" style="width: {{ (g.score * 100)|round }}px"></span>
@@ -127,6 +150,34 @@ const FILTER_KEY = 'mydealz-filter-status';
 const rows = Array.from(document.querySelectorAll('table tr[data-group]'));
 const filterButtons = document.querySelectorAll('.filter-bar button[data-filter]');
 const countEl = document.getElementById('filter-count');
+const bulkForm = document.getElementById('bulk-form');
+const bulkMode = document.getElementById('bulk-mode');
+const bulkApply = document.getElementById('bulk-apply');
+const selectedCountEl = document.getElementById('selected-count');
+const selectVisibleBtn = document.getElementById('select-visible');
+const clearSelectionBtn = document.getElementById('clear-selection');
+
+function getSelectedBoxes() {
+  return Array.from(document.querySelectorAll('.group-select:checked'));
+}
+
+function selectedLabel(count) {
+  return count === 1 ? '1 Gruppe markiert' : `${count} Gruppen markiert`;
+}
+
+function updateSelectionState() {
+  const count = getSelectedBoxes().length;
+  selectedCountEl.textContent = selectedLabel(count);
+  bulkApply.disabled = count === 0;
+}
+
+function setRowStatus(row, mode) {
+  const pillCell = row.querySelector('td:nth-child(7)');
+  row.classList.remove('block', 'allow');
+  if (mode === 'block') row.classList.add('block');
+  if (mode === 'allow') row.classList.add('allow');
+  setPill(pillCell, mode);
+}
 
 function applyFilter(name) {
   let visible = 0;
@@ -149,6 +200,68 @@ function applyFilter(name) {
 filterButtons.forEach(b => b.addEventListener('click', () => applyFilter(b.dataset.filter)));
 applyFilter(localStorage.getItem(FILTER_KEY) || 'all');
 
+document.querySelectorAll('.group-select').forEach(box => {
+  box.addEventListener('change', updateSelectionState);
+});
+
+selectVisibleBtn.addEventListener('click', () => {
+  rows.forEach(row => {
+    if (row.style.display !== 'none') {
+      row.querySelector('.group-select').checked = true;
+    }
+  });
+  updateSelectionState();
+});
+
+clearSelectionBtn.addEventListener('click', () => {
+  document.querySelectorAll('.group-select').forEach(box => { box.checked = false; });
+  updateSelectionState();
+});
+
+bulkForm.addEventListener('submit', async (e) => {
+  const selectedBoxes = getSelectedBoxes();
+  if (selectedBoxes.length === 0) {
+    e.preventDefault();
+    return;
+  }
+
+  const mode = bulkMode.value;
+  const label = mode === 'clear' ? 'Auto' : mode.toUpperCase();
+  if (!confirm(`${label} fuer ${selectedBoxes.length} markierte Gruppen anwenden?`)) {
+    e.preventDefault();
+    return;
+  }
+
+  e.preventDefault();
+  try {
+    const resp = await fetch(bulkForm.action, {
+      method: 'POST',
+      body: new FormData(bulkForm),
+    });
+    if (!resp.ok) {
+      throw new Error('HTTP ' + resp.status);
+    }
+
+    selectedBoxes.forEach(box => {
+      const row = box.closest('tr');
+      setRowStatus(row, mode);
+      box.checked = false;
+      row.style.transition = 'background-color 0.3s';
+      const prevBg = row.style.backgroundColor;
+      row.style.backgroundColor = '#fffacd';
+      setTimeout(() => { row.style.backgroundColor = prevBg; }, 400);
+    });
+
+    updateSelectionState();
+    applyFilter(localStorage.getItem(FILTER_KEY) || 'all');
+  } catch (err) {
+    console.error('Stapelaktion fehlgeschlagen, falle auf Form-Submit zurueck:', err);
+    bulkForm.submit();
+  }
+});
+
+updateSelectionState();
+
 // --- AJAX für Override/Reset ---
 document.querySelectorAll('form.js-override, form.js-reset').forEach(form => {
   form.addEventListener('submit', async (e) => {
@@ -168,15 +281,11 @@ document.querySelectorAll('form.js-override, form.js-reset').forEach(form => {
         throw new Error('HTTP ' + resp.status);
       }
 
-      const pillCell = row.querySelector('td:nth-child(6)');
-      row.classList.remove('block', 'allow');
-      if (mode === 'block') row.classList.add('block');
-      if (mode === 'allow') row.classList.add('allow');
-      setPill(pillCell, mode);
+      setRowStatus(row, mode);
 
       if (isReset) {
-        row.querySelector('td:nth-child(3)').textContent = '0';
         row.querySelector('td:nth-child(4)').textContent = '0';
+        row.querySelector('td:nth-child(5)').textContent = '0';
       }
 
       // Kurzes gelbes Aufblitzen als Feedback
