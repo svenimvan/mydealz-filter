@@ -3,6 +3,10 @@
 Ein selbstlernender RSS-Filter für [mydealz.de](https://www.mydealz.de), der
 deinen Klick-Verlauf nutzt um irrelevante Deals automatisch auszublenden.
 
+## Workspace-Dokumente
+
+- [Projektvertrag](PROJECT.md)
+
 - **Implicit Feedback**: Du musst nicht aktiv bewerten — was du nicht anklickst,
   zählt als "nicht interessant".
 - **LLM-Klassifikation**: Jeder Deal wird per LLM in eine feine Produkt-Gruppe
