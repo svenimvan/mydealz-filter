@@ -31,6 +31,16 @@ class _UnauthorizedResponse:
     status_code = 401
 
 
+class _MalformedResponse:
+    status_code = 200
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return {"error": "temporary upstream response"}
+
+
 class ClassifierSanitizingTest(unittest.TestCase):
     def setUp(self):
         self._post = classifier.httpx.post
@@ -179,6 +189,19 @@ class ClassifierSanitizingTest(unittest.TestCase):
 
         classifier.httpx.post = lambda *args, **kwargs: _RateLimitedResponse()
         self.assertEqual(classifier.classify("Direktflüge: Griechenland ab Berlin", ""), ["Flug"])
+
+    def test_malformed_success_response_is_retried(self):
+        responses = iter([_MalformedResponse(), _Response("Grill")])
+        calls = 0
+
+        def post(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            return next(responses)
+
+        classifier.httpx.post = post
+        self.assertEqual(classifier.classify("Einweggrill", ""), ["Grill"])
+        self.assertEqual(calls, 2)
 
     def test_unauthorized_response_disables_remote_calls_for_process(self):
         calls = 0

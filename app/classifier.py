@@ -374,14 +374,39 @@ def classify(title: str, description: str = "") -> list[str]:
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
+            response_data = resp.json()
+            if not isinstance(response_data, dict):
+                raise ValueError("Antwort ist kein JSON-Objekt")
+            choices = response_data.get("choices")
+            if not isinstance(choices, list) or not choices:
+                raise ValueError("Antwort enthält keine choices")
+            if not isinstance(choices[0], dict):
+                raise ValueError("erste choice ist kein Objekt")
+            message = choices[0].get("message")
+            if not isinstance(message, dict):
+                raise ValueError("Antwort enthält keine message")
+            content = message.get("content")
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("Antwort enthält keinen Textinhalt")
             break
+        except (KeyError, TypeError, ValueError, IndexError) as e:
+            if attempt == 3:
+                log.error("Ungültige OpenRouter-Antwort für '%s': %s",
+                          title[:60], e)
+                break
+            wait = 2 ** attempt  # 1, 2, 4 s
+            log.warning("Ungültige OpenRouter-Antwort für '%s': %s; "
+                        "wiederhole in %ds (Versuch %d)",
+                        title[:60], e, wait, attempt + 1)
+            time.sleep(wait)
+            continue
         except Exception as e:
             log.error("OpenRouter-Call fehlgeschlagen für '%s': %s", title[:60], e)
             return _sanitize_groups([], title, description)
 
     if content is None:
-        log.error("Nach 4 Versuchen immer noch 429 für '%s'", title[:60])
+        log.error("Nach 4 Versuchen keine gültige OpenRouter-Antwort für '%s'",
+                  title[:60])
         return _sanitize_groups([], title, description)
 
     # Plain-Text-Output parsen: kommagetrennte Gruppen, eventuell mit
