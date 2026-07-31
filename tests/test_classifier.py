@@ -141,6 +141,26 @@ class ClassifierSanitizingTest(unittest.TestCase):
         )
         self.assertEqual(result, ["Shopping-Rabatt"])
 
+    def test_sonstige_deals_response_uses_specific_offer_fallbacks(self):
+        cases = [
+            (
+                "Schlemmer- oder Freizeitblock 2026/2027",
+                "Gutscheinbuch.de mit 2-für-1-Angeboten für Gastronomie und Freizeit",
+                ["Erlebnisgutschein"],
+            ),
+            (
+                "myPostcard 4 Euro Guthaben",
+                "Kostenlose erste Postkarte",
+                ["Fotodruck"],
+            ),
+        ]
+        for title, description, expected in cases:
+            with self.subTest(title=title):
+                self.assertEqual(
+                    classifier._sanitize_groups(["Sonstige Deals"], title, description),
+                    expected,
+                )
+
     def test_high_confidence_fallbacks_do_not_collect_noisy_extra_groups(self):
         cases = [
             (

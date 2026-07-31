@@ -175,6 +175,10 @@ def _keyword_fallback(title: str, description: str = "") -> list[str]:
         return ["Lieferdienst-Gutschein"]
     if any(needle in text for needle in ("restaurantgutschein", "restaurantgutscheine", "bon bon")):
         return ["Restaurant-Gutschein"]
+    if any(needle in text for needle in ("schlemmerblock", "freizeitblock", "gutscheinbuch.de")):
+        return ["Erlebnisgutschein"]
+    if any(needle in text for needle in ("mypostcard", "postkarte")):
+        return ["Fotodruck"]
     if any(needle in text for needle in ("mydays", "smartbox")):
         return ["Erlebnisgutschein"]
     if "herpa" in text:
