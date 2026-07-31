@@ -52,23 +52,27 @@ stellt einen gefilterten RSS-Feed sowie ein lokales Dashboard bereit.
 Prüfung am 2026-07-31 gegen die dokumentierte Laufzeitquelle:
 
 - LXC 100 auf dem Proxmox-Host: `running`.
-- Container `mydealz-filter`: `running`, 0 Neustarts, gestartet am 2026-07-02;
-  Docker-Healthcheck ist nicht konfiguriert.
+- Container `mydealz-filter`: `running`, Docker-Healthcheck `healthy`,
+  0 Neustarts.
 - `/healthz`, `/feed.xml` und Dashboard: HTTP 200.
 - MyDealz-RSS und OpenRouter: aktuelle Polls mit HTTP 200.
 - SQLite: `PRAGMA integrity_check = ok`, WAL aktiv.
-- Datenbestand: 32.380 Deals, 1.285 Gruppen, 35.933 Zuordnungen, 340 Klicks,
-  93.337 Impressionen und 1.725 Feed-Abrufe.
+- Datenbestand nach der Betriebsstabilisierung: 32.387 Deals, 1.286 Gruppen,
+  35.946 Zuordnungen, 340 Klicks, 93.461 Impressionen und 1.728 Feed-Abrufe.
 
-Nicht dringende Befunde:
+## Betriebsstabilisierung 2026-07-31
 
-- `Sonstige Deals` ist aktuell noch 20 Deals zugeordnet, obwohl der letzte
-  Klassifizierungs-Audit diese Zuordnung mit 0 ausweist. Ein erneuter
-  Klassifizierungs-Audit ist sinnvoll.
-- Ein einzelner OpenRouter-Response war am 2026-07-31 um 18:04 Uhr strukturell
-  unerwartet (`'choices'`); der Poll wurde trotzdem erfolgreich abgeschlossen.
+- Docker Compose prüft den bestehenden HTTP-Endpunkt `/healthz` alle 30 Sekunden;
+  der Container wurde nach dem Deploy als `healthy` verifiziert.
+- Strukturell ungültige OpenRouter-HTTP-200-Antworten werden nun bis zu drei Mal
+  erneut versucht, bevor die lokale Fallback-Klassifikation greift.
+- Vor beiden produktiven Eingriffen wurden konsistente SQLite-Snapshots im
+  persistenten Datenvolume erstellt.
+- Alle 20 aktiven Zuordnungen zu `Sonstige Deals` wurden neu klassifiziert;
+  danach verblieben 0 aktive Zuordnungen.
 
-Die Prüfung änderte weder Anwendung, Deployment noch Runtime-Daten.
+Die Änderungen wurden mit Tests, Build, Container-Healthcheck, HTTP-Endpoints,
+aktuellen Poll-/OpenRouter-Logs und SQLite-Integritätsprüfung verifiziert.
 
 ## Verantwortlichkeit
 

@@ -216,12 +216,27 @@ Der produktive Dienst im dokumentierten LXC 100 wurde ohne Änderungen geprüft:
 - Bestand: 32.380 Deals, 1.285 Gruppen, 35.933 Deal-Gruppen-Zuordnungen,
   340 Klicks, 93.337 verbuchte Impressionen und 1.725 Feed-Abrufe.
 
-Zwei nicht dringende Nacharbeiten bleiben: Docker hat keinen konfigurierten
-Healthcheck (der HTTP-Healthcheck funktioniert), und `Sonstige Deals` ist noch
-20 Deals zugeordnet. Letzteres weicht vom Klassifizierungs-Audit vom 2026-05-29
-ab und sollte bei Gelegenheit erneut auditiert werden. Am 2026-07-31 trat zudem
-ein einzelner strukturell unerwarteter OpenRouter-Response auf; der betroffene
-Poll wurde erfolgreich mit Fallback-Verhalten abgeschlossen.
+Zum Prüfzeitpunkt bestanden zwei nicht dringende Befunde: Es fehlte ein
+Docker-Healthcheck, und `Sonstige Deals` war noch 20 Deals zugeordnet. Am
+2026-07-31 trat zudem ein einzelner strukturell unerwarteter OpenRouter-Response
+auf; der betroffene Poll wurde mit Fallback-Verhalten abgeschlossen.
+
+## Betriebsstabilisierung 2026-07-31
+
+Die offenen Befunde wurden anschließend behoben und produktiv verifiziert:
+
+- Compose prüft `/healthz` nun alle 30 Sekunden mit dem bereits vorhandenen
+  Python-Laufzeitsystem; nach dem Deploy meldete Docker `healthy`.
+- Eine HTTP-200-Antwort ohne verwertbares OpenRouter-`choices`-Feld wird bis zu
+  drei Mal erneut versucht (1, 2 und 4 Sekunden), bevor der lokale Fallback
+  verwendet wird.
+- Vor den produktiven Änderungen wurden zwei konsistente SQLite-Snapshots im
+  persistenten Datenvolume angelegt.
+- Die 20 aktiven `Sonstige Deals`-Zuordnungen wurden neu klassifiziert. Zwei
+  konkrete Restfälle erhielten eng gefasste Fallbacks (`Erlebnisgutschein` und
+  `Fotodruck`); danach blieben 0 aktive Zuordnungen übrig.
+- Container, `/healthz`, `/feed.xml`, aktuelle Poll-/OpenRouter-Logs und
+  `PRAGMA integrity_check` wurden nach dem Deploy erneut erfolgreich geprüft.
 
 ## Dashboard-Features
 
