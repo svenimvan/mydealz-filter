@@ -16,8 +16,8 @@ deinen Klick-Verlauf nutzt um irrelevante Deals automatisch auszublenden.
   System filtert Gruppen mit niedrigem geschätzten Klick-Score, mit
   Exploration (Thompson Sampling) damit auch neue/unsichere Gruppen Chancen
   bekommen.
-- **Manuelle Overrides**: Block / Allow / Reset für einzelne Gruppen über das
-  Dashboard.
+- **Manuelle Overrides**: Block / Allow / Reset für einzelne Gruppen sowie
+  Block / Allow / Auto als Stapelaktion über das Dashboard.
 
 ## Architektur
 
@@ -71,6 +71,7 @@ mydealz.de/rss/alles  →  [Poller]  →  SQLite
 | `GET  /click/<id>`                    | Klick-Tracker → 302 Redirect zum echten Deal          |
 | `GET  /`                              | Dashboard: Gruppen, Scores, Status-Filter, Aktionen   |
 | `POST /groups/<name>/override`        | Manuell Block / Allow / Auto setzen (Form-Body)       |
+| `POST /groups/bulk/override`          | Block / Allow / Auto für markierte Gruppen setzen     |
 | `POST /groups/<name>/reset`           | α/β auf 0 + Override entfernen                        |
 | `POST /admin/reclassify-unknown`      | Alle `unklassifiziert`-Deals neu klassifizieren       |
 | `POST /admin/reclassify-group/<name>` | Alle Deals einer Gruppe neu klassifizieren            |
@@ -242,8 +243,12 @@ Die offenen Befunde wurden anschließend behoben und produktiv verifiziert:
 
 - **Filter-Bar**: schnell zwischen "Alle", "Nur Auto", "Nur Block", "Nur Allow"
   umschalten — perfekt zum effizienten Triagieren neuer Gruppen
+- **Markierspalte + Stapelaktionen**: mehrere Gruppen markieren, alle aktuell
+  sichtbaren Gruppen auswählen und anschließend gemeinsam auf Block, Allow
+  oder Auto setzen
 - **AJAX-Updates**: Block/Allow/Reset funktioniert ohne Page-Reload, deine
-  Scroll-Position bleibt erhalten
+  Scroll-Position bleibt erhalten; Stapelaktionen aktualisieren die betroffenen
+  Zeilen ebenfalls direkt
 - **Progressive Enhancement**: ohne JavaScript fällt es auf klassischen
   Form-Submit zurück (mit Anker-Redirect für Scroll-Restoration)
 - **Filter-Persistenz**: deine Filter-Auswahl bleibt über Reloads erhalten

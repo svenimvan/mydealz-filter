@@ -2,7 +2,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import Response, RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -104,6 +104,29 @@ def dashboard(request: Request):
         "dashboard.html",
         {"request": request, "groups": enriched, "totals": dict(totals)},
     )
+
+
+@app.post("/groups/bulk/override")
+def set_bulk_override(groups: list[str] = Form(..., alias="groups[]"),
+                      mode: str = Form(...)):
+    """Setzt den manuellen Status fuer mehrere Gruppen."""
+    if mode not in {"allow", "block", "clear"}:
+        raise HTTPException(status_code=400, detail="Ungueltiger Modus")
+
+    unique_groups = list(dict.fromkeys(g for g in groups if g))
+    if not unique_groups:
+        raise HTTPException(status_code=400, detail="Keine Gruppen ausgewaehlt")
+
+    val = None if mode == "clear" else mode
+    placeholders = ",".join("?" for _ in unique_groups)
+    with connect() as conn:
+        cursor = conn.execute(
+            f"UPDATE groups SET manual_override = ?, "
+            f"updated_at = CURRENT_TIMESTAMP WHERE name IN ({placeholders})",
+            (val, *unique_groups),
+        )
+
+    return {"mode": mode, "requested": len(unique_groups), "updated": cursor.rowcount}
 
 
 @app.post("/groups/{name}/override")
