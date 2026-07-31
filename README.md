@@ -204,6 +204,25 @@ Wiederholungsprüfung der produktiven Klassifizierung:
 - `Sonstige Deals` wird nicht mehr als normales LLM-Ergebnis akzeptiert,
   sondern löst die lokale Fallback-Klassifikation aus.
 
+## Betriebsprüfung 2026-07-31
+
+Der produktive Dienst im dokumentierten LXC 100 wurde ohne Änderungen geprüft:
+
+- Container läuft seit 2026-07-02 ohne Neustarts; `/healthz`, Dashboard und
+  `/feed.xml` antworten mit HTTP 200.
+- Poller und Scheduler laufen im 10-Minuten-Takt; MyDealz-RSS und OpenRouter
+  lieferten in den aktuellen Polls HTTP 200.
+- SQLite meldet `PRAGMA integrity_check = ok` und verwendet WAL.
+- Bestand: 32.380 Deals, 1.285 Gruppen, 35.933 Deal-Gruppen-Zuordnungen,
+  340 Klicks, 93.337 verbuchte Impressionen und 1.725 Feed-Abrufe.
+
+Zwei nicht dringende Nacharbeiten bleiben: Docker hat keinen konfigurierten
+Healthcheck (der HTTP-Healthcheck funktioniert), und `Sonstige Deals` ist noch
+20 Deals zugeordnet. Letzteres weicht vom Klassifizierungs-Audit vom 2026-05-29
+ab und sollte bei Gelegenheit erneut auditiert werden. Am 2026-07-31 trat zudem
+ein einzelner strukturell unerwarteter OpenRouter-Response auf; der betroffene
+Poll wurde erfolgreich mit Fallback-Verhalten abgeschlossen.
+
 ## Dashboard-Features
 
 - **Filter-Bar**: schnell zwischen "Alle", "Nur Auto", "Nur Block", "Nur Allow"

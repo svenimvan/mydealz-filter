@@ -44,7 +44,31 @@ stellt einen gefilterten RSS-Feed sowie ein lokales Dashboard bereit.
 - Projektstatus: `aktiv`
 - Aktuelle Phase: Betrieb und Pflege
 - Der technische Dienst ist implementiert.
-- Der aktuelle produktive Laufzeitstatus wurde in diesem Pilot nicht geprüft.
+- Der produktive Laufzeitstatus wurde am 2026-07-31 geprüft; der Dienst läuft
+  im LXC 100.
+
+## Letzte Betriebsprüfung
+
+Prüfung am 2026-07-31 gegen die dokumentierte Laufzeitquelle:
+
+- LXC 100 auf dem Proxmox-Host: `running`.
+- Container `mydealz-filter`: `running`, 0 Neustarts, gestartet am 2026-07-02;
+  Docker-Healthcheck ist nicht konfiguriert.
+- `/healthz`, `/feed.xml` und Dashboard: HTTP 200.
+- MyDealz-RSS und OpenRouter: aktuelle Polls mit HTTP 200.
+- SQLite: `PRAGMA integrity_check = ok`, WAL aktiv.
+- Datenbestand: 32.380 Deals, 1.285 Gruppen, 35.933 Zuordnungen, 340 Klicks,
+  93.337 Impressionen und 1.725 Feed-Abrufe.
+
+Nicht dringende Befunde:
+
+- `Sonstige Deals` ist aktuell noch 20 Deals zugeordnet, obwohl der letzte
+  Klassifizierungs-Audit diese Zuordnung mit 0 ausweist. Ein erneuter
+  Klassifizierungs-Audit ist sinnvoll.
+- Ein einzelner OpenRouter-Response war am 2026-07-31 um 18:04 Uhr strukturell
+  unerwartet (`'choices'`); der Poll wurde trotzdem erfolgreich abgeschlossen.
+
+Die Prüfung änderte weder Anwendung, Deployment noch Runtime-Daten.
 
 ## Verantwortlichkeit
 
