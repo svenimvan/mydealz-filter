@@ -13,7 +13,8 @@ services:
       - PUBLIC_BASE_URL=http://192.168.178.50:5102
       - POLL_INTERVAL_MINUTES=10
       - IMPRESSION_WINDOW_HOURS=6
-      - CLASSIFIER_MODEL=google/gemini-2.5-flash-lite
+      - CLASSIFIER_PROVIDER=scaleway
+      - CLASSIFIER_MODEL=mistral-small-3.2-24b-instruct-2506
       - CLASSIFIER_MIN_DELAY=0.2
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5102/healthz', timeout=3).read()"]
