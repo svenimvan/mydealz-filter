@@ -5,9 +5,10 @@ deinen Klick-Verlauf nutzt um irrelevante Deals automatisch auszublenden.
 
 - **Implicit Feedback**: Du musst nicht aktiv bewerten — was du nicht anklickst,
   zählt als "nicht interessant".
-- **LLM-Klassifikation**: Jeder Deal wird per LLM in eine feine Produkt-Gruppe
-  einsortiert (z.B. `iPhone`, `3D-Drucker`, `KI-Abo`, `Bohrhammer`), nicht in
-  die groben MyDealz-Oberkategorien.
+- **Rule-first-LLM-Klassifikation**: Eindeutige lokale Regeln entscheiden zuerst;
+  nur Grenzfälle gehen an Scaleway Mistral Small. Jeder Deal wird in eine feine
+  Produkt-Gruppe einsortiert (z.B. `iPhone`, `3D-Drucker`, `KI-Abo`, `Bohrhammer`),
+  nicht in die groben MyDealz-Oberkategorien.
 - **Bayes-Bandit-Scoring**: Pro Gruppe wird eine Beta-Verteilung geführt; das
   System filtert Gruppen mit niedrigem geschätzten Klick-Score, mit
   Exploration (Thompson Sampling) damit auch neue/unsichere Gruppen Chancen
@@ -20,7 +21,7 @@ deinen Klick-Verlauf nutzt um irrelevante Deals automatisch auszublenden.
 ```
 mydealz.de/rss/alles  →  [Poller]  →  SQLite
                            ↓
-                      [LLM-Klassifikator]  (OpenRouter)
+                      [Regeln → LLM-Klassifikator]  (Scaleway Mistral Small)
                            ↓
                         Deal-Tags ── /feed.xml  →  dein RSS-Reader
                                           ↓
@@ -37,9 +38,11 @@ mydealz.de/rss/alles  →  [Poller]  →  SQLite
 ## Funktionsweise im Detail
 
 1. **Poller** (alle 10 min): holt MyDealz-RSS-Feed, speichert neue Deals.
-2. **Klassifikator**: jeder Deal wird per LLM (OpenRouter) in 1–3 feine
-   Produkt-Gruppen einsortiert. Bereits bekannte Gruppen werden dem Modell
-   mitgegeben, damit das Vokabular konsistent bleibt.
+2. **Klassifikator**: lokale Regeln entscheiden eindeutige Fälle. Nur unsichere
+   Fälle werden per Scaleway Mistral Small in 1–3 feine Produkt-Gruppen
+   einsortiert. Bei Providerfehlern greift die lokale Fallback-Logik; es gibt
+   keinen automatischen Wechsel zu OpenRouter. Bereits bekannte Gruppen werden
+   dem Modell mitgegeben, damit das Vokabular konsistent bleibt.
 3. **Feed-Endpoint** `/feed.xml`: liefert gefilterten RSS mit umgeschriebenen
    Click-Tracking-Links und einem unverwechselbaren GUID-Präfix
    (`mydealz-filter-<id>`) damit RSS-Reader ihn als eigenständigen Feed
@@ -77,8 +80,7 @@ mydealz.de/rss/alles  →  [Poller]  →  SQLite
 ### Voraussetzungen
 
 - Docker + Docker Compose
-- OpenRouter-API-Key (kostenpflichtig, sehr günstig — ~4€/Monat bei
-  Default-Modell `google/gemini-2.5-flash-lite`)
+- Scaleway Generative-API-Key aus der bestehenden Secret-Verwaltung
 
 ### Installation
 
@@ -86,9 +88,8 @@ mydealz.de/rss/alles  →  [Poller]  →  SQLite
 git clone https://github.com/<user>/mydealz-filter.git
 cd mydealz-filter
 
-# .env mit deinem API-Key anlegen
+# .env mit dem Secret aus der bestehenden Secret-Verwaltung anlegen
 cp .env.example .env
-echo "OPENROUTER_API_KEY=sk-or-v1-..." > .env
 chmod 600 .env
 
 # Starten
@@ -101,21 +102,22 @@ docker compose up -d
 
 | Variable                  | Default                                | Bedeutung                                    |
 |---------------------------|----------------------------------------|----------------------------------------------|
-| `OPENROUTER_API_KEY`      | —                                      | OpenRouter-API-Key (in `.env`)               |
-| `CLASSIFIER_MODEL`        | `google/gemini-2.5-flash-lite`         | Modell-ID für die Klassifikation             |
+| `CLASSIFIER_PROVIDER`     | `scaleway`                             | Aktiver Provider (`scaleway` oder `openrouter`) |
+| `SCALEWAY_API_KEY`        | —                                      | Scaleway-API-Key (in `.env`)                |
+| `SCALEWAY_API_URL`        | `https://api.scaleway.ai/v1/chat/completions` | Scaleway-Chat-Completions-Endpunkt      |
+| `CLASSIFIER_MODEL`        | `mistral-small-3.2-24b-instruct-2506`  | Modell-ID für die Klassifikation             |
 | `CLASSIFIER_MIN_DELAY`    | `0.2`                                  | Mindest-Sekunden zwischen API-Calls          |
 | `POLL_INTERVAL_MINUTES`   | `10`                                   | Wie oft MyDealz-RSS abgefragt wird           |
 | `IMPRESSION_WINDOW_HOURS` | `6`                                    | Zeitfenster bevor Nicht-Klicks gezählt werden|
 | `PUBLIC_BASE_URL`         | `http://localhost:5102`                | Basis-URL für Click-Redirect-URLs            |
 
-### Alternative Modelle
+### Expliziter Rollback
 
 ```yaml
-# In docker-compose.yml unter environment:
-- CLASSIFIER_MODEL=openrouter/free                     # Auto-Router (gratis, aber rate-limited)
-- CLASSIFIER_MODEL=deepseek/deepseek-chat-v3.1         # gut, ~8€/Monat
-- CLASSIFIER_MODEL=google/gemini-2.5-flash-lite        # Default, ~4€/Monat
-- CLASSIFIER_MODEL=anthropic/claude-3-5-haiku          # sehr gut, ~15€/Monat
+# Nur fuer einen bewussten Rollback setzen; kein automatischer Fallback:
+- CLASSIFIER_PROVIDER=openrouter
+- CLASSIFIER_MODEL=google/gemini-2.5-flash-lite
+# OPENROUTER_API_KEY bleibt im .env erhalten.
 ```
 
 ## DB-Schema
@@ -148,8 +150,8 @@ docker exec mydealz-filter sqlite3 /data/mydealz.db  # falls sqlite3 installiert
 ## Entwicklung / Tests
 
 ```bash
-# Klassifizierungs-Schutzregeln ohne echten OpenRouter-Call testen
-python3.12 -m unittest tests.test_classifier
+# Klassifizierungsregeln, Provider-Routing und Fallbacks testen
+python3.12 -m unittest discover -s tests -v
 ```
 
 ## Klassifizierungs-Audit 2026-05-24
@@ -208,10 +210,10 @@ Wiederholungsprüfung der produktiven Klassifizierung:
 - **LLM-Klassifikationen können daneben liegen** — typischer Fall: Modell
   rät bei ungewöhnlichen Produktnamen. Über `/admin/reclassify-group` oder
   manuellen Eingriff korrigierbar.
-- **OpenRouter-Fehler** — bei fehlendem/ungültigem API-Key oder Rate-Limits
-  nutzt der Klassifikator lokale Fallback-Regeln für bekannte Muster. Nicht
-  erkennbare Fälle landen als `Sonstige Deals`, bis der API-Zugang wieder
-  funktioniert.
+- **Scaleway-Fehler** — bei fehlendem/ungültigem API-Key, Rate-Limits, Timeouts,
+  5xx oder ungültigem Output nutzt der Klassifikator die lokale Fallback-Logik.
+  Nicht erkennbare Fälle landen als `Sonstige Deals`; es erfolgt kein
+  automatischer Wechsel zu OpenRouter.
 
 ## Lizenz
 

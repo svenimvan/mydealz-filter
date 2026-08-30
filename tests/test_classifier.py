@@ -36,6 +36,14 @@ class ClassifierSanitizingTest(unittest.TestCase):
         self._post = classifier.httpx.post
         self._known = classifier.get_known_groups
         self._sleep = classifier.time.sleep
+        self._provider = classifier.PROVIDER
+        self._api_url = classifier.API_URL
+        self._api_key = classifier.API_KEY
+        self._model = classifier.MODEL
+        classifier.PROVIDER = "openrouter"
+        classifier.API_URL = classifier.OPENROUTER_URL
+        classifier.API_KEY = "dummy"
+        classifier.MODEL = "google/gemini-2.5-flash-lite"
         classifier.get_known_groups = lambda: []
         classifier.time.sleep = lambda seconds: None
         classifier._remote_disabled_reason = None
@@ -44,6 +52,10 @@ class ClassifierSanitizingTest(unittest.TestCase):
         classifier.httpx.post = self._post
         classifier.get_known_groups = self._known
         classifier.time.sleep = self._sleep
+        classifier.PROVIDER = self._provider
+        classifier.API_URL = self._api_url
+        classifier.API_KEY = self._api_key
+        classifier.MODEL = self._model
         classifier._remote_disabled_reason = None
 
     def _classify_with_response(self, title: str, response: str):
@@ -189,8 +201,8 @@ class ClassifierSanitizingTest(unittest.TestCase):
             return _UnauthorizedResponse()
 
         classifier.httpx.post = post
-        self.assertEqual(classifier.classify("Apple Music 3 Monate für 1,99€", ""), ["Musik-Abo"])
-        self.assertEqual(classifier.classify("Direktflüge: Griechenland ab Berlin", ""), ["Flug"])
+        self.assertEqual(classifier.classify("Unbekannter Haushaltsartikel", ""), ["Sonstige Deals"])
+        self.assertEqual(classifier.classify("Noch ein unbekannter Deal", ""), ["Sonstige Deals"])
         self.assertEqual(calls, 1)
 
 
